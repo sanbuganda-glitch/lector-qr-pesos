@@ -1,0 +1,129 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lector QR - Pesos</title>
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f2f5f2;
+  color: #263b30;
+  text-align: center;
+  padding: 20px;
+}
+.contenedor {
+  max-width: 450px;
+  margin: auto;
+  background: white;
+  padding: 22px;
+  border-radius: 14px;
+}
+h2 { color: #176b3a; }
+button {
+  width: 100%;
+  padding: 15px;
+  margin-top: 15px;
+  border: none;
+  border-radius: 8px;
+  background: #176b3a;
+  color: white;
+  font-weight: bold;
+  font-size: 16px;
+}
+#estado {
+  margin-top: 18px;
+  line-height: 1.5;
+  font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+<div class="contenedor">
+  <h2>LECTOR QR - PESOS</h2>
+  <p>Enfoca el código QR de Siscombas con la cámara del teléfono.</p>
+
+  <div id="lector"></div>
+
+  <button id="activar" onclick="iniciarLector()">
+    ACTIVAR CÁMARA
+  </button>
+
+  <div id="estado">Esperando para iniciar...</div>
+</div>
+
+<script>
+const URL_TABLERO =
+"https://script.google.com/macros/s/AKfycbwEVlKBSRCZlEVDvuI_EnEjjJCCY2vapU6h2TYV-PzyvOc2N-Df_j1nMuiS5r8hybFd/exec";
+
+let lector = null;
+let procesando = false;
+
+function iniciarLector() {
+  if (lector) return;
+
+  const estado = document.getElementById("estado");
+  estado.textContent = "Solicitando acceso a la cámara...";
+
+  lector = new Html5Qrcode("lector");
+
+  lector.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    codigo => enviarQR(codigo),
+    () => {}
+  ).then(() => {
+    estado.textContent = "Cámara activa. Escanea el QR.";
+    document.getElementById("activar").disabled = true;
+  }).catch(error => {
+    lector = null;
+    estado.textContent = "Error de cámara: " + error;
+  });
+}
+
+function enviarQR(enlace) {
+  if (procesando) return;
+
+  if (!/^https?:\/\//i.test(enlace) ||
+      !/[?&]token=/i.test(enlace)) {
+    document.getElementById("estado").textContent =
+      "El QR no contiene un enlace válido de Siscombas.";
+    return;
+  }
+
+  procesando = true;
+  document.getElementById("estado").textContent =
+    "Enviando enlace al computador...";
+
+  lector.stop().then(() => {
+    lector.clear();
+    lector = null;
+
+    fetch(URL_TABLERO, {
+      method: "POST",
+      mode: "no-cors",
+      headers: {
+        "Content-Type": "text/plain"
+      },
+      body: enlace
+    }).then(() => {
+      document.getElementById("estado").textContent =
+        "Enlace enviado. Revisa el computador.";
+      document.getElementById("activar").disabled = false;
+      document.getElementById("activar").textContent =
+        "ESCANEAR OTRO QR";
+      procesando = false;
+    }).catch(error => {
+      document.getElementById("estado").textContent =
+        "Error al enviar el enlace: " + error;
+      procesando = false;
+    });
+  });
+}
+</script>
+</body>
+</html>
